@@ -55,8 +55,62 @@ namespace ProcessingModule
         /// Acquisitor thread logic.
         /// </summary>
 		private void Acquisition_DoWork()
-		{
-            //TO DO: IMPLEMENT
+        {
+            while (true)
+            {
+                try
+                {
+                    acquisitionTrigger.WaitOne(1000);
+
+                    foreach (IConfigItem item in configuration.GetConfigurationItems())
+                    {
+                        item.SecondsPassedSinceLastPoll++;
+
+                        if (item.RegistryType == PointType.DIGITAL_OUTPUT)
+                        {
+                            if (item.SecondsPassedSinceLastPoll >= 2)
+                            {
+                                processingManager.ExecuteReadCommand(
+                                    item,
+                                    configuration.GetTransactionId(),
+                                    configuration.UnitAddress,
+                                    item.StartAddress,
+                                    item.NumberOfRegisters
+                                );
+
+                                stateUpdater.LogMessage(
+                                    $"Polling coil {item.Description}");
+
+                                item.SecondsPassedSinceLastPoll = 0;
+                            }
+                        }
+
+                        if (item.RegistryType == PointType.ANALOG_INPUT ||
+                            item.RegistryType == PointType.ANALOG_OUTPUT)
+                        {
+                            if (item.SecondsPassedSinceLastPoll >= 4)
+                            {
+                                processingManager.ExecuteReadCommand(
+                                    item,
+                                    configuration.GetTransactionId(),
+                                    configuration.UnitAddress,
+                                    item.StartAddress,
+                                    item.NumberOfRegisters
+                                );
+
+                                stateUpdater.LogMessage(
+                                    $"Polling analog {item.Description}");
+
+                                item.SecondsPassedSinceLastPoll = 0;
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    stateUpdater.LogMessage("Acquisition error: " + ex.Message);
+                }
+            }
         }
 
         #endregion Private Methods
